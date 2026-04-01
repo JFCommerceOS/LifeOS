@@ -9,3 +9,5 @@ coverage
 .vite
 packages/database/.migrate_stash_work/
 **/vite.config.ts.timestamp-*.mjs
+__pycache__/
+*.py[cod]

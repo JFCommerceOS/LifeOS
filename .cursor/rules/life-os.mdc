@@ -1,0 +1,32 @@
+---
+description: Life OS phase gates and blueprint authority
+globs:
+  - "**/*"
+---
+
+# Life OS — Cursor execution
+
+## Authority
+
+- **Product positioning (locked):** structured continuity platform + agentic assistance layer — not a pure agent product. See `docs/LIFE_OS_PRODUCT_POSITIONING.md`.
+- Product locks and vision: `Life_OS_Full_Phases_0_7_Blueprint_Pack/00_MASTER_LOCK_AND_VISION.md`
+- Phase 0 foundation: `Life_OS_Full_Phases_0_7_Blueprint_Pack/01_PHASE_0_FOUNDATION.md`
+- **Blueprint pack (0–7):** baselined in repo — including `08_PHASE_7_EDGE_DEVICE_ECOSYSTEM.md` (thin shells + continuity core; **`deviceSyncOptIn`** defaults **off**).
+- **Execution rules (read first):** `Life_OS_Full_Phases_0_7_Blueprint_Pack/09_CURSOR_MASTER_EXECUTION_RULES.md`
+- Scope guard: `docs/NEXT_PHASE_SCOPE.md` — new numbered phases only when product defines post-pack scope.
+
+## Rules
+
+0. **Positioning:** Prefer **structured surfaces** (Brief, obligations, events, people, documents, memory) as the product center; **agentic** behavior assists on top — do not replace records/evidence with chat, and do not ship “agent-first” UX as the only path.
+1. Default **next** work follows `docs/NEXT_PHASE_SCOPE.md`; do not expand edge sync / encryption / full watch logic without explicit scope.
+2. **Phase 4–6 opt-ins** default **off** as in blueprints. **Phase 7:** watch/accessory surfaces stay **minimal**; no full archive on watch by default.
+3. Keep **evidence** and **audit** first-class; prefer explicit services and Zod validation over a single “ask AI” endpoint.
+4. Respect **local-first** and **external memory** backup; companion/export endpoints are thin slices — do not expand into full Phase 7 sync without a Phase 7 scope.
+5. Reuse **`EntityLink`** for graph edges; **`UserProfile` / `UserSettings`** stay additive.
+
+## Codebase
+
+- Monorepo: `apps/web`, `apps/api`, `packages/database`, `packages/shared`, `packages/types`.
+- Product positioning (locked): `docs/LIFE_OS_PRODUCT_POSITIONING.md`.
+- Phase 0 acceptance: `docs/PHASE_0_ACCEPTANCE.md`.
+- Phase 1 gap notes: `docs/PHASE_1_GAP_ANALYSIS.md`.

@@ -1,0 +1,35 @@
+{
+  "name": "@life-os/database",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "prisma": {
+    "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts"
+  },
+  "scripts": {
+    "build": "node ../../scripts/clear-prisma-engines.mjs && node ../../scripts/run-prisma.mjs generate && tsc",
+    "lint": "eslint src",
+    "test": "vitest run --passWithNoTests",
+    "migrate": "node ../../scripts/clear-prisma-engines.mjs && node ../../scripts/run-prisma.mjs migrate dev",
+    "migrate:deploy": "node ../../scripts/run-prisma.mjs migrate deploy"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "dotenv-cli": "^8.0.0",
+    "@types/node": "^22.10.2",
+    "prisma": "^6.1.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

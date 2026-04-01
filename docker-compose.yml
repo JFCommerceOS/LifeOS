@@ -1,0 +1,29 @@
+# Local PostgreSQL for Life OS development.
+# Requires Docker Desktop (or Docker Engine + Compose).
+#
+# Start:  pnpm db:up
+# Stop:   pnpm db:down
+# Full first-time setup: pnpm db:bootstrap
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lifeos-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lifeos
+    volumes:
+      - lifeos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d lifeos']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  lifeos_pgdata:

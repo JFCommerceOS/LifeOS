@@ -1,0 +1,3242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Hardening Sprint 01 — identity
+enum PrimaryAuthMethod {
+  none
+  local_dev
+  passkey_ready
+}
+
+enum UserRecoveryState {
+  none
+  recovery_placeholder
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Hardening Sprint 01 — passkey-ready account model (Stage A/B)
+  primaryAuthMethod      PrimaryAuthMethod @default(none)
+  passkeyEnabled         Boolean           @default(false)
+  recoveryState          UserRecoveryState @default(none)
+  lastSecurityReviewAt   DateTime?
+
+  settings            UserSettings?
+  connectors          SourceConnector[]
+  sourceRecords       SourceRecord[]
+  events              Event[]
+  notes               Note[]
+  documents           Document[]
+  tasks               Task[]
+  obligations         Obligation[]
+  deadlines           Deadline[]
+  reminders           Reminder[]
+  entityLinks         EntityLink[]
+  suggestions         Suggestion[]
+  suggestionFactors   SuggestionRankFactor[]
+  dailyBriefs         DailyBrief[]
+  dailyBriefItems     DailyBriefItem[]
+  evidenceItems       EvidenceItem[]
+  auditLogs           AuditLog[]
+  feedbackSignals     FeedbackSignal[]
+  memoryCorrections   MemoryCorrection[]
+  dismissalRules      DismissalRule[]
+  persons             Person[]
+  conversations       Conversation[]
+  purchases           Purchase[]
+  subscriptions       Subscription[]
+  lifeAppointments    LifeAppointment[]
+  voiceCaptures       VoiceCapture[]
+  audioEvidenceItems  AudioEvidenceItem[]
+  profile             UserProfile?
+  placeEvents         PlaceEvent[]
+  savedPlaces         SavedPlace[]
+  screenTimeSummaries ScreenTimeSummary[]
+  decisionRecords     DecisionRecord[]
+  digitalTwinProfile  DigitalTwinProfile?
+  edgeDevices         EdgeDevice[]
+
+  // v3 assistant-grade layers (mediation, state, surfaces, geo, relationships, life phase, routines)
+  userStateSnapshots      UserStateSnapshot[]
+  geoContextEvents        GeoContextEvent[]
+  relationshipProfiles    RelationshipProfile[]
+  lifePhaseTransitions    LifePhaseTransition[]
+  routineScaffolds        RoutineScaffold[]
+  assistantMediationLogs  AssistantMediationLog[]
+  llmInvocationLogs       LlmInvocationLog[]
+  surfaceDeliveryPolicies SurfaceDeliveryPolicy[]
+
+  // Permission, trust, progressive activation (blueprint)
+  capabilityRegistries       UserCapabilityRegistry[]
+  capabilityPermissions      CapabilityPermission[]
+  capabilityBehaviorPolicies CapabilityBehaviorPolicy[]
+  capabilityActivationEvents CapabilityActivationEvent[]
+  capabilityFeedbackMetrics  CapabilityFeedbackMetrics[]
+
+  // Adaptive domain architecture (support style, not identity roles)
+  userDomainProfiles     UserDomainProfile[]
+  domainBehaviorPolicies DomainBehaviorPolicy[]
+  domainFeedbackMetrics  DomainFeedbackMetrics[]
+  domainActivationEvents DomainActivationEvent[]
+
+  /// Global language + voice preferences (Phase 8+ language stack)
+  languagePreference UserLanguagePreference?
+
+  /// Signal Intake + Context Engine (structured meaning layer)
+  signalEnvelopes SignalEnvelope[]
+  contextObjects  ContextObject[]
+
+  /// Memory Graph + continuity store (layered, decaying, correctable)
+  memoryNodes MemoryNode[]
+
+  /// Sprint 06 — CTX prep (evidence-backed bundles, corrections)
+  contextBundles  ContextBundle[]
+  personCorrections PersonCorrection[]
+
+  /// Sprint 07 — Admin Guard (ADM)
+  adminRecords   AdminRecord[]
+  adminDeadlines AdminDeadline[]
+  adminPatterns  AdminPattern[]
+  adminReceipts  AdminReceipt[]
+  adminActions   AdminAction[]
+
+  /// Sprint 09 — Privacy, retention, purge
+  dataRetentionPolicies     DataRetentionPolicy[]
+  privacyActions            PrivacyAction[]
+  purgeJobs                 PurgeJob[]
+  exportJobs                ExportJob[]
+  redactionRules            RedactionRule[]
+  storageInventorySnapshots StorageInventorySnapshot[]
+
+  /// Sprint 10 — mobile runtime / notification surface
+  notificationSurfaceEvents       NotificationSurfaceEvent[]
+  notificationUserPreference      NotificationUserPreference?
+  notificationDeviceRegistrations NotificationDeviceRegistration[]
+  notificationActionLogs          NotificationActionLog[]
+  policyDecisions                 PolicyDecision[]
+
+  /// Sprint 11 — User Profile & Priority adaptation (UPR)
+  userProfileModes           UserProfileMode[]
+  preferenceInferenceSignals PreferenceInferenceSignal[]
+  inferredPreferenceStates   InferredPreferenceState[]
+  priorityProfileSnapshots   PriorityProfileSnapshot[]
+  adaptationDecisionLogs     AdaptationDecisionLog[]
+
+  /// Hardening Sprint 01
+  userSessions             UserSession[]
+  policyDecisionLogs       PolicyDecisionLog[]
+  dataClassifications      DataClassification[]
+  securityPolicies         SecurityPolicy[]
+  securityAuditLogs        SecurityAuditLog[]
+
+  /// Hardening Sprint 02 — mutation log, versioning, jobs, observability
+  mutationLogs       MutationLog[]
+  entityVersions     EntityVersion[]
+  conflictEvents     ConflictEvent[]
+  scheduledJobs      ScheduledJob[]
+  traceEvents        TraceEvent[]
+  explanationEvents  ExplanationEvent[]
+  projectionRefreshes ProjectionRefresh[]
+}
+
+/// Phase 7 — registered shells (phone / watch / accessory / private node); no full archive on watch by default
+enum EdgeDeviceRole {
+  phone
+  watch
+  accessory
+  private_node
+}
+
+enum DeviceTrustStatus {
+  PENDING
+  TRUSTED
+  LIMITED
+  REVOKED
+}
+
+enum DeviceTrustLevel {
+  LOW
+  NORMAL
+  HIGH
+}
+
+model EdgeDevice {
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientDeviceId String
+  label          String
+  role           EdgeDeviceRole
+  lastSeenAt     DateTime       @default(now())
+
+  /// Hardening Sprint 01 — device trust
+  trustStatus          DeviceTrustStatus @default(TRUSTED)
+  trustLevel           DeviceTrustLevel  @default(NORMAL)
+  platform             String?
+  deviceFingerprint    String?
+  enrolledAt           DateTime          @default(now())
+  revokedAt            DateTime?
+  localOnlyCapable     Boolean           @default(false)
+  supportsBiometrics   Boolean           @default(false)
+
+  createdAt DateTime @default(now())
+
+  sessions           UserSession[]
+  deviceKeys         DeviceKey[]
+  securityAuditLogs  SecurityAuditLog[]
+  mutationLogs       MutationLog[]
+
+  @@unique([userId, clientDeviceId])
+  @@index([userId, role])
+  @@index([userId, trustStatus])
+}
+
+enum AuthStrength {
+  LOCAL_UNLOCK
+  PASSKEY
+  RECOVERY
+}
+
+model UserSession {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edgeDeviceId     String?
+  edgeDevice       EdgeDevice? @relation(fields: [edgeDeviceId], references: [id], onDelete: SetNull)
+  sessionTokenHash String    @unique
+  issuedAt         DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  lastSeenAt       DateTime  @default(now())
+  authStrength     AuthStrength @default(LOCAL_UNLOCK)
+
+  @@index([userId, expiresAt])
+  @@index([userId, revokedAt])
+}
+
+model DeviceKey {
+  id             String    @id @default(cuid())
+  edgeDeviceId   String
+  edgeDevice     EdgeDevice  @relation(fields: [edgeDeviceId], references: [id], onDelete: Cascade)
+  keyVersion     Int
+  wrappedKeyBlob String
+  createdAt      DateTime    @default(now())
+  retiredAt      DateTime?
+
+  @@index([edgeDeviceId, keyVersion])
+}
+
+/// Hardening Sprint 01 — user-editable policy JSON documents (extensible)
+model SecurityPolicy {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policyScope String
+  policyName  String
+  policyJson  String   @default("{}")
+  version     Int      @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, policyScope, isActive])
+}
+
+enum PolicyDecisionArea {
+  STORAGE
+  SURFACING
+  REDACTION
+  ACTION
+  EXPORT
+  DEVICE_ACCESS
+}
+
+enum PolicyEngineResult {
+  ALLOW
+  ALLOW_WITH_REDACTION
+  ALLOW_AFTER_CONFIRMATION
+  BLOCK
+  LOCAL_ONLY
+  ARCHIVE_ONLY
+}
+
+/// Hardening Sprint 01 — generic policy engine audit log (distinct from notification PolicyDecision rows)
+model PolicyDecisionLog {
+  id                 String             @id @default(cuid())
+  userId             String
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceEntityType   String
+  sourceEntityId     String
+  decisionArea       PolicyDecisionArea
+  decisionResult     PolicyEngineResult
+  reasonCode         String
+  policyVersion      String             @default("hs01-v1")
+  contextJson        Json?
+  createdAt          DateTime           @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, decisionArea])
+}
+
+enum DomainClass {
+  GENERAL
+  HEALTH
+  FINANCE
+  EDUCATION
+  LEGAL
+  LOCATION
+  RELATIONSHIP
+  PRIVATE_MESSAGE
+}
+
+enum ClassificationSensitivityLevel {
+  LOW
+  MODERATE
+  HIGH
+  RESTRICTED
+}
+
+enum SurfaceRestriction {
+  FULL
+  REDACT_SMALL_SCREEN
+  CONFIRM_BEFORE_SURFACE
+  LOCAL_ONLY
+  ARCHIVE_ONLY
+}
+
+enum StorageRestriction {
+  STANDARD
+  ENCRYPTED_AT_REST
+  LOCAL_ONLY
+  SHORT_RETENTION
+  EXPLICIT_EXPORT_ONLY
+}
+
+model DataClassification {
+  id                    String                       @id @default(cuid())
+  userId                String
+  user                  User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedEntityType    String
+  linkedEntityId      String
+  domainClass         DomainClass
+  sensitivityLevel    ClassificationSensitivityLevel
+  requiresConfirmation Boolean                     @default(false)
+  surfaceRestriction  SurfaceRestriction
+  storageRestriction  StorageRestriction
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+
+  @@unique([userId, linkedEntityType, linkedEntityId])
+  @@index([userId, domainClass])
+}
+
+enum SecurityAuditSeverity {
+  info
+  warning
+  critical
+}
+
+model SecurityAuditLog {
+  id           String               @id @default(cuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edgeDeviceId String?
+  edgeDevice   EdgeDevice?          @relation(fields: [edgeDeviceId], references: [id], onDelete: SetNull)
+  eventType    String
+  eventSummary String
+  severity     SecurityAuditSeverity @default(info)
+  metaJson     Json?
+  createdAt    DateTime             @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// --- Phase 3: Admin Guard, voice, profile (blueprint 04) ---
+
+enum ProfileType {
+  professional
+  student
+  parent
+  freelancer
+  caregiver
+  mixed
+}
+
+enum ReminderTimingPreference {
+  morning
+  afternoon
+  evening
+  balanced
+}
+
+enum NotificationDensity {
+  low
+  normal
+  high
+}
+
+enum NudgeStyle {
+  strict
+  gentle
+}
+
+/// Sprint 11 — brief card density (declared)
+enum BriefDensityPreference {
+  MINIMAL
+  BALANCED
+  DETAILED
+}
+
+/// Sprint 11 — reminder / notification phrasing
+enum UprReminderStyle {
+  CALM
+  DIRECT
+  CHECKLIST
+  SUMMARY
+}
+
+/// Sprint 11 — default and active life / focus modes
+enum MainLifeMode {
+  WORK
+  STUDY
+  ADMIN
+  PERSONAL
+  MIXED
+  TRAVEL
+  HEALTH_RECORD_REVIEW
+}
+
+/// Sprint 11 — adaptation scope for weak inference
+enum UprPrivacySensitivity {
+  STANDARD
+  HIGH
+  STRICT
+}
+
+enum InferredPreferenceStatus {
+  active
+  corrected
+  superseded
+}
+
+enum NotificationVerbosity {
+  calm
+  direct
+}
+
+model UserProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  profileType         ProfileType              @default(mixed)
+  reminderTiming      ReminderTimingPreference @default(balanced)
+  notificationDensity NotificationDensity      @default(normal)
+  nudgeStyle          NudgeStyle               @default(gentle)
+  emphasisWork        Float                    @default(0.34)
+  emphasisFamily      Float                    @default(0.33)
+  emphasisHealth      Float                    @default(0.33)
+  inferredJson        String                   @default("{}")
+
+  /// Sprint 11 UPR — declared fields (starter pack §7)
+  displayName                        String?
+  preferredBriefDensity              BriefDensityPreference @default(BALANCED)
+  uprReminderStyle                   UprReminderStyle       @default(CALM)
+  preferredEscalationWindowHours     Int?
+  workHoursWindowJson                String                 @default("{}")
+  quietHoursWindowJson               String                 @default("{}")
+  mainLifeModeDefault                MainLifeMode           @default(MIXED)
+  priorityDomainWeightsJson          String                 @default("{\"work\":1,\"study\":1,\"admin\":1,\"personal\":1,\"health_tracking\":1}")
+  confidenceThresholdPreferencesJson String                 @default("{}")
+  uprPrivacySensitivity              UprPrivacySensitivity  @default(STANDARD)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Purchase {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String
+  merchant           String?
+  amount             Float?
+  currency           String?   @default("USD")
+  purchasedAt        DateTime
+  returnWindowEndsAt DateTime?
+  receiptRef         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, returnWindowEndsAt])
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  provider  String?
+  renewalAt DateTime
+  amount    Float?
+  currency  String?  @default("USD")
+  active    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, renewalAt])
+}
+
+/// Life-admin appointments (renewals, visits) — distinct from calendar `Event`
+model LifeAppointment {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title    String
+  startsAt DateTime
+  location String?
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, startsAt])
+}
+
+enum VoiceTranscriptionStatus {
+  pending
+  transcribing
+  complete
+  failed
+  needs_review
+}
+
+model VoiceCapture {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sourceDevice String?
+  durationMs   Int?
+  mimeType     String?
+
+  audioStorageKey String?
+
+  transcriptionStatus VoiceTranscriptionStatus @default(pending)
+
+  transcriptOriginal String @default("")
+  transcript           String
+  transcriptConfidence Float   @default(0.5)
+  normalizedText       String?
+  languageCode         String?
+
+  retainedRawAudio          Boolean @default(true)
+  userCorrectedTranscript Boolean @default(false)
+
+  noteId String?
+
+  transcriptSegments TranscriptSegment[]
+  audioEvidenceItems AudioEvidenceItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([userId, transcriptionStatus])
+}
+
+model TranscriptSegment {
+  id             String       @id @default(cuid())
+  voiceCaptureId String
+  voiceCapture   VoiceCapture @relation(fields: [voiceCaptureId], references: [id], onDelete: Cascade)
+
+  startMs    Int     @default(0)
+  endMs      Int     @default(0)
+  text       String
+  confidence Float   @default(0.5)
+
+  createdAt DateTime @default(now())
+
+  extractedFacts     ExtractedFact[]
+  audioEvidenceItems AudioEvidenceItem[]
+
+  @@index([voiceCaptureId])
+}
+
+model AudioEvidenceItem {
+  id                 String  @id @default(cuid())
+  userId             String
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedEntityType   String
+  linkedEntityId     String
+  voiceCaptureId     String
+  voiceCapture       VoiceCapture @relation(fields: [voiceCaptureId], references: [id], onDelete: Cascade)
+  transcriptSegmentId String?
+  transcriptSegment   TranscriptSegment? @relation(fields: [transcriptSegmentId], references: [id], onDelete: SetNull)
+
+  excerpt    String
+  confidence Float @default(0.5)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([voiceCaptureId])
+}
+
+/// Phase 2 — people & continuity (see blueprint 03)
+/// Sprint 06 — CTX: person_type, importance_level, aliases, corrections
+model Person {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  relationshipType  String    @default("contact")
+  importance        Int       @default(3)
+  personType        PersonType         @default(UNKNOWN)
+  importanceLevel   ImportanceLevel    @default(NORMAL)
+  notesSummary      String?
+  lastInteractionAt DateTime?
+
+  conversations       Conversation[]
+  relationshipProfile RelationshipProfile?
+  aliases               PersonAlias[]
+  corrections         PersonCorrection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, name])
+}
+
+enum PersonType {
+  INDIVIDUAL
+  ORGANIZATION
+  GROUP
+  UNKNOWN
+}
+
+enum ImportanceLevel {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum PersonCorrectionType {
+  WRONG_PERSON_MATCH
+  MERGE_PEOPLE
+  SPLIT_PERSON
+  RENAME_PERSON
+  CHANGE_IMPORTANCE
+}
+
+enum ContextBundleType {
+  EVENT_PREP
+  PERSON_CONTEXT
+  OBLIGATION_CONTEXT
+}
+
+enum ContextBundleItemRole {
+  PERSON
+  NOTE
+  DOCUMENT
+  OBLIGATION
+  TASK
+  DEADLINE
+  EVENT
+}
+
+model PersonAlias {
+  id         String   @id @default(cuid())
+  personId   String
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  aliasText  String
+  sourceType String   @default("manual") // manual | note_extract | event_title | document_extract
+  createdAt  DateTime @default(now())
+
+  @@unique([personId, aliasText])
+  @@index([personId])
+}
+
+model PersonCorrection {
+  id              String               @id @default(cuid())
+  userId          String
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personId        String
+  person          Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  correctionType  PersonCorrectionType
+  correctionNote  String               @default("")
+  createdAt       DateTime             @default(now())
+
+  @@index([userId, personId])
+}
+
+model ContextBundle {
+  id                String            @id @default(cuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetEntityType  String
+  targetEntityId    String
+  bundleType        ContextBundleType
+  summaryText       String            @default("")
+  confidence        Float             @default(0.72)
+  generatedAt       DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+  items             ContextBundleItem[]
+
+  @@index([userId, targetEntityType, targetEntityId])
+  @@index([userId, bundleType])
+}
+
+model ContextBundleItem {
+  id                String                 @id @default(cuid())
+  contextBundleId   String
+  bundle            ContextBundle          @relation(fields: [contextBundleId], references: [id], onDelete: Cascade)
+  linkedEntityType  String
+  linkedEntityId    String
+  itemRole          ContextBundleItemRole
+  priorityScore     Float                  @default(0.5)
+  reasonSummary     String                 @default("")
+  createdAt         DateTime               @default(now())
+
+  @@index([contextBundleId])
+  @@index([linkedEntityType, linkedEntityId])
+}
+
+model Conversation {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personId   String?
+  person     Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  title      String?
+  summary    String?
+  occurredAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, occurredAt])
+  @@index([personId])
+}
+
+model UserSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  timezone                String  @default("UTC")
+  retentionDays           Int     @default(365)
+  privacyStrictMode       Boolean @default(true)
+  connectorTogglesJson    String  @default("{}") // JSON: which connectors enabled
+  /// Phase 4 — pattern/location/behavior signals (off by default, blueprint 05)
+  patternSignalsOptIn     Boolean @default(false)
+  /// Phase 5 — lifestyle/routine hints (off by default, blueprint 06); non-medical copy only
+  lifestyleInsightsOptIn  Boolean @default(false)
+  /// Phase 6 — predictive / adaptive co-pilot features (off by default, blueprint 07)
+  predictiveModeOptIn     Boolean @default(false)
+  /// Phase 7 — optional multi-device sync intent (off by default); transport still user-controlled (LAN/VPN)
+  deviceSyncOptIn         Boolean @default(false)
+  /// JSON array of module keys to exclude from sync payloads (e.g. "documents", "voice")
+  syncExcludedModulesJson String  @default("[]")
+  /// Ambient tile: show real titles/lines when true; default false for semi-visible safety
+  ambientTileShowDetail   Boolean @default(false)
+  /// When set, overrides automatic mode selection for tile display (see TileMode in @life-os/types)
+  ambientTileManualMode   String?
+
+  /// Sprint 12 — voice capture & speech interface
+  voiceCaptureEnabled       Boolean @default(true)
+  voiceRetainRawAudio       Boolean @default(true)
+  voiceTranscriptAutosave   Boolean @default(true)
+  spokenReadoutEnabled      Boolean @default(false)
+
+  /// Sprint 13 — location catalog + place-linked continuity hints (off by default)
+  locationIntelligenceOptIn Boolean @default(false)
+  /// Everyone mode keeps UI focused on core capture + follow-through by default.
+  everyoneModeEnabled       Boolean @default(true)
+  /// Set when the user finishes the lightweight onboarding flow.
+  onboardingCompletedAt     DateTime?
+
+  /// Hardening Sprint 01 — domain posture (strict = encrypted + small-surface defaults)
+  healthDomainSurfacePolicy   String  @default("strict")
+  financeDomainSurfacePolicy  String  @default("strict")
+  watchSensitiveDetailOptIn   Boolean @default(false)
+
+  /// Hardening Sprint 02 — pause outbound sync / outbox processing (local writes still durable)
+  syncOutboxPaused Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Phase 6 — user-correctable twin layer (inference is derived on read; corrections stored here)
+model DigitalTwinProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// JSON: traitKey -> { note?: string, overrideSummary?: string }
+  correctionsJson           String @default("{}")
+  /// JSON array of inference keys the user chose not to surface
+  disabledInferenceKeysJson String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Phase 5 — decision ledger (user-editable, deletable)
+model DecisionRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  rationale   String?
+  outcomeNote String?
+  decidedAt   DateTime @default(now())
+  /// Optional normalized topic for “similar prior decision” recall
+  topicKey    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, decidedAt])
+  @@index([userId, topicKey])
+}
+
+/// Sprint 13 — user-owned saved place (catalog). No raw coordinates stored here by default.
+enum PlaceSensitivity {
+  normal
+  home
+  work
+  private_sensitive
+}
+
+model SavedPlace {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label         String
+  category      String?
+  sensitivity   PlaceSensitivity @default(normal)
+  /// When true, pattern/insight surfaces treat linked events like masked unless user overrides per event.
+  defaultMasked Boolean          @default(false)
+  notes         String?
+
+  aliases     PlaceAlias[]
+  placeEvents PlaceEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, label])
+}
+
+model PlaceAlias {
+  id           String     @id @default(cuid())
+  savedPlaceId String
+  savedPlace   SavedPlace @relation(fields: [savedPlaceId], references: [id], onDelete: Cascade)
+  /// Normalized for lookup (store lowercased trimmed)
+  alias String
+
+  @@unique([savedPlaceId, alias])
+  @@index([alias])
+}
+
+/// Generalized place visit — no raw GPS trail (Phase 4)
+model PlaceEvent {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  occurredAt      DateTime
+  placeLabel      String
+  placeCategory   String?
+  durationMinutes Int?
+  masked          Boolean  @default(false)
+  source          String   @default("manual")
+
+  savedPlaceId String?
+  savedPlace   SavedPlace? @relation(fields: [savedPlaceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, occurredAt])
+  @@index([savedPlaceId])
+}
+
+/// Per-day screen-time totals — category buckets only, no app content (Phase 4)
+model ScreenTimeSummary {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day                 DateTime @db.Date
+  totalMinutes        Int      @default(0)
+  categoryMinutesJson String   @default("{}")
+  lateNightMinutes    Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day])
+  @@index([userId, day])
+}
+
+/// Sprint 08 — connector layer (purpose-scoped, reversible)
+enum ConnectorType {
+  CALENDAR
+  TASKS
+  EMAIL_METADATA
+  STUB
+}
+
+enum ConnectorStatus {
+  DISCONNECTED
+  CONNECTING
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+enum ConnectorSyncMode {
+  MANUAL_ONLY
+  SCHEDULED
+}
+
+enum SourceRecordKind {
+  CALENDAR_EVENT
+  TASK_RECORD
+  EMAIL_THREAD_METADATA
+}
+
+enum SourceRecordIngestStatus {
+  pending
+  normalized
+  applied
+  failed
+  purged
+}
+
+enum ConnectorSyncRunType {
+  INITIAL_SYNC
+  DELTA_SYNC
+  RESYNC
+  PURGE
+}
+
+enum ConnectorSyncRunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum ConnectorPermissionKey {
+  READ_EVENTS
+  READ_TASKS
+  READ_EMAIL_METADATA
+  READ_EMAIL_SNIPPETS
+}
+
+model SourceConnector {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Legacy string label; prefer `connectorType`
+  type       String    @default("stub")
+  connectorType ConnectorType @default(STUB)
+  name       String
+  configJson String    @default("{}")
+  enabled    Boolean   @default(false)
+  status     ConnectorStatus @default(DISCONNECTED)
+  authMode   String    @default("stub")
+  syncMode   ConnectorSyncMode @default(MANUAL_ONLY)
+  scopeJson  String    @default("{}")
+  cursorJson String    @default("{}")
+  lastSyncAt DateTime?
+
+  records         SourceRecord[]
+  signalEnvelopes SignalEnvelope[]
+  syncRuns        ConnectorSyncRun[]
+  permissions     ConnectorPermission[]
+  purgeLogs       ConnectorPurgeLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model SourceRecord {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectorId    String
+  connector      SourceConnector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  /// Stable id from external system (uniqueness with connectorId when set)
+  externalId     String?
+  sourceKind     SourceRecordKind?
+  sourceUpdatedAt DateTime?
+  canonicalHash  String?
+  ingestStatus   SourceRecordIngestStatus @default(pending)
+  payloadJson    String
+  normalizedJson String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  signalEnvelopes SignalEnvelope[]
+  events          Event[]          @relation("EventFromSourceRecord")
+  tasks           Task[]           @relation("TaskFromSourceRecord")
+
+  @@unique([connectorId, externalId])
+  @@index([userId, createdAt])
+  @@index([connectorId])
+}
+
+model ConnectorSyncRun {
+  id              String                 @id @default(cuid())
+  connectorId     String
+  connector       SourceConnector        @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  runType         ConnectorSyncRunType
+  runStatus       ConnectorSyncRunStatus @default(RUNNING)
+  startedAt       DateTime               @default(now())
+  completedAt     DateTime?
+  recordsSeen     Int                    @default(0)
+  recordsInserted Int                    @default(0)
+  recordsUpdated  Int                    @default(0)
+  recordsFailed   Int                    @default(0)
+  errorSummary    String?
+  createdAt       DateTime               @default(now())
+
+  @@index([connectorId, createdAt])
+}
+
+model ConnectorPermission {
+  id              String                 @id @default(cuid())
+  connectorId     String
+  connector       SourceConnector        @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  permissionKey   ConnectorPermissionKey
+  granted         Boolean                @default(false)
+  grantedAt       DateTime?
+  createdAt       DateTime               @default(now())
+
+  @@unique([connectorId, permissionKey])
+}
+
+model ConnectorPurgeLog {
+  id                  String          @id @default(cuid())
+  connectorId         String
+  connector           SourceConnector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  purgeScope          String
+  affectedRecordCount Int             @default(0)
+  createdAt           DateTime        @default(now())
+
+  @@index([connectorId, createdAt])
+}
+
+model Event {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  startsAt       DateTime?
+  endsAt         DateTime?
+  sourceRecordId String?
+  sourceRecord   SourceRecord? @relation("EventFromSourceRecord", fields: [sourceRecordId], references: [id], onDelete: SetNull)
+  archivedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, startsAt])
+  @@index([sourceRecordId])
+}
+
+model Note {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body   String
+  title  String?
+  /// Sprint 09 — archived notes are hidden from default lists, not deleted
+  archivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+// --- Sprint 05 — Document Intelligence Intake (DII) ---
+
+enum DocumentFamily {
+  HEALTH
+  FINANCE_ADMIN
+  EDUCATION
+  GENERIC
+  UNKNOWN
+}
+
+enum DocumentSubtype {
+  LAB_REPORT
+  PRESCRIPTION
+  APPOINTMENT_NOTE
+  BILL
+  INVOICE
+  STATEMENT
+  RECEIPT
+  ASSIGNMENT
+  SYLLABUS
+  EXAM_NOTICE
+  LETTER
+  FORM
+  SCREENSHOT
+  OTHER
+}
+
+enum DocumentPipelineStatus {
+  UPLOADED
+  OCR_PENDING
+  OCR_DONE
+  CLASSIFIED
+  EXTRACTED
+  NEEDS_REVIEW
+  ARCHIVED
+  FAILED
+}
+
+enum FieldObservedOrInferred {
+  OBSERVED
+  EXTRACTED
+  INFERRED
+}
+
+enum DocumentIntakeFeedbackType {
+  CONFIRM_DOCUMENT_TYPE
+  CORRECT_DOCUMENT_TYPE
+  CONFIRM_FIELD
+  CORRECT_FIELD
+  SUPPRESS_TRACKING
+  FALSE_POSITIVE
+  TRACK_THIS
+  ARCHIVE_ONLY
+}
+
+enum DocumentDeadlineType {
+  PAYMENT_DUE
+  FOLLOW_UP_DUE
+  RETEST_DUE
+  APPOINTMENT_DUE
+  ASSIGNMENT_DUE
+  REVIEW_DUE
+}
+
+model Document {
+  id         String  @id @default(cuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  storageKey String? /// relative path under upload root
+  mimeType   String?
+
+  documentFamily           DocumentFamily         @default(UNKNOWN)
+  documentSubtype          DocumentSubtype        @default(OTHER)
+  sourceKind               String? // upload | camera
+  fileName                 String?
+  pageCount                Int                    @default(1)
+  captureTimestamp         DateTime?
+  processingStatus         DocumentPipelineStatus @default(UPLOADED)
+  classificationConfidence Float?
+  trackingSuppressed       Boolean                @default(false)
+  archiveOnly              Boolean                @default(false)
+  summaryLine              String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assets            DocumentAsset[]
+  pages             DocumentPage[]
+  ocrBlocks         OcrBlock[]
+  extractions       DocumentExtraction[]
+  extractedFields   ExtractedField[]
+  domainRecords     DocumentDomainRecord[]
+  labResultRecords  LabResultRecord[]
+  billRecords       BillRecord[]
+  assignmentRecords AssignmentRecord[]
+  deadlines         DocumentDeadline[]
+  intakeFeedback    DocumentIntakeFeedback[]
+  evidenceItems     EvidenceItem[]
+  adminRecords      AdminRecord[] @relation("AdminRecordSourceDoc")
+  adminReceipts     AdminReceipt[] @relation("AdminReceiptSourceDoc")
+
+  @@index([userId, processingStatus])
+  @@index([userId, createdAt])
+}
+
+model DocumentAsset {
+  id            String   @id @default(cuid())
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  localUri      String
+  previewUri    String?
+  checksum      String?
+  fileSizeBytes Int?
+  createdAt     DateTime @default(now())
+
+  @@index([documentId])
+}
+
+model DocumentPage {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  pageNumber Int
+  width      Int?
+  height     Int?
+  createdAt  DateTime @default(now())
+
+  ocrBlocks OcrBlock[]
+
+  @@index([documentId])
+}
+
+model OcrBlock {
+  id         String        @id @default(cuid())
+  documentId String
+  document   Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  pageId     String?
+  page       DocumentPage? @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  blockIndex Int           @default(0)
+  text       String        @default("")
+  bboxJson   String        @default("{}")
+  confidence Float         @default(0.5)
+  createdAt  DateTime      @default(now())
+
+  @@index([documentId])
+  @@index([pageId])
+}
+
+model DocumentExtraction {
+  id                String   @id @default(cuid())
+  documentId        String
+  document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  extractionVersion Int      @default(1)
+  extractionStatus  String   @default("pending") // pending | complete | failed
+  rawTextSummary    String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  extractedFields ExtractedField[]
+
+  @@index([documentId])
+}
+
+model ExtractedField {
+  id                   String                  @id @default(cuid())
+  documentId           String
+  document             Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  extractionId         String
+  extraction           DocumentExtraction      @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+  fieldName            String
+  fieldType            String
+  fieldValueJson       String
+  confidence           Float                   @default(0.5)
+  evidenceBlockIdsJson String                  @default("[]")
+  observedOrInferred   FieldObservedOrInferred @default(EXTRACTED)
+  createdAt            DateTime                @default(now())
+
+  @@index([documentId])
+  @@index([extractionId])
+}
+
+model DocumentDomainRecord {
+  id           String   @id @default(cuid())
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  domainType   String // health_lab | bill | assignment | generic
+  recordStatus String   @default("draft")
+  summary      String   @default("")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([documentId])
+}
+
+model LabResultRecord {
+  id           String    @id @default(cuid())
+  documentId   String    @unique
+  document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sourceName   String?
+  testDate     DateTime?
+  panelName    String?
+  followUpNote String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  items LabResultItem[]
+}
+
+model LabResultItem {
+  id                String          @id @default(cuid())
+  labResultRecordId String
+  labResultRecord   LabResultRecord @relation(fields: [labResultRecordId], references: [id], onDelete: Cascade)
+  analyteName       String
+  valueText         String?
+  valueNumeric      Float?
+  unit              String?
+  refRangeText      String?
+  flag              String?
+  confidence        Float           @default(0.5)
+  createdAt         DateTime        @default(now())
+
+  @@index([labResultRecordId])
+}
+
+model BillRecord {
+  id                String    @id @default(cuid())
+  documentId        String    @unique
+  document          Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  issuerName        String?
+  accountReference  String?
+  amountDue         Float?
+  currency          String?   @default("USD")
+  dueAt             DateTime?
+  billingPeriodText String?
+  recurringHint     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+// --- Sprint 07 — Admin Guard (ADM) ---
+
+enum AdminRecordType {
+  BILL
+  SUBSCRIPTION
+  RENEWAL
+  RECEIPT
+  RETURN_WINDOW
+  APPOINTMENT_ADMIN
+  FORM_REQUIREMENT
+  PAYMENT_REQUEST
+}
+
+enum AdminRecordStatus {
+  ACTIVE
+  PAID
+  COMPLETED
+  DISMISSED
+  ARCHIVED
+  EXPIRED
+}
+
+enum AdminDeadlineKind {
+  PAYMENT_DUE
+  RENEWAL_DUE
+  RETURN_WINDOW_END
+  APPOINTMENT_PREP
+  FORM_SUBMISSION_DUE
+}
+
+enum AdminUserActionKind {
+  MARK_PAID
+  MARK_COMPLETED
+  SNOOZE
+  DISMISS
+  CORRECT
+  ARCHIVE
+}
+
+model AdminRecord {
+  id                   String            @id @default(cuid())
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminType            AdminRecordType
+  title                String
+  issuerName           String?
+  referenceNumber      String?
+  amountValue          Float?
+  currencyCode         String?           @default("USD")
+  dueAt                DateTime?
+  renewsAt             DateTime?
+  billingPeriodStart   DateTime?
+  billingPeriodEnd     DateTime?
+  returnWindowEndsAt   DateTime?
+  appointmentAt        DateTime?
+  recurrenceHint       String?
+  status               AdminRecordStatus @default(ACTIVE)
+  sourceDocumentId     String?
+  document             Document?         @relation("AdminRecordSourceDoc", fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  extractionConfidence Float           @default(0.55)
+  snoozedUntil         DateTime?
+  reasonSummary        String            @default("")
+
+  deadlines AdminDeadline[]
+  receipts  AdminReceipt[]
+  actions   AdminAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, dueAt])
+  @@index([sourceDocumentId])
+}
+
+model AdminDeadline {
+  id             String            @id @default(cuid())
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminRecordId  String
+  adminRecord    AdminRecord       @relation(fields: [adminRecordId], references: [id], onDelete: Cascade)
+  deadlineKind   AdminDeadlineKind
+  dueAt          DateTime?
+  confidence     Float             @default(0.6)
+  sourceFactId   String?
+  createdAt      DateTime          @default(now())
+
+  @@index([adminRecordId])
+  @@index([userId, dueAt])
+}
+
+model AdminReceipt {
+  id                   String    @id @default(cuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminRecordId        String?
+  adminRecord          AdminRecord? @relation(fields: [adminRecordId], references: [id], onDelete: Cascade)
+  sourceDocumentId     String?
+  document             Document? @relation("AdminReceiptSourceDoc", fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  vendorName           String?
+  purchaseAt           DateTime?
+  totalValue           Float?
+  currencyCode         String?   @default("USD")
+  returnWindowEndsAt   DateTime?
+  warrantyHint         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([adminRecordId])
+  @@index([sourceDocumentId])
+}
+
+model AdminPattern {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patternType      String
+  canonicalName    String
+  issuerName       String?
+  recurrenceGuess  String?
+  lastSeenAt       DateTime?
+  confidence       Float    @default(0.5)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model AdminAction {
+  id            String              @id @default(cuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adminRecordId String
+  adminRecord   AdminRecord         @relation(fields: [adminRecordId], references: [id], onDelete: Cascade)
+  actionType    AdminUserActionKind
+  note          String              @default("")
+  actedAt       DateTime            @default(now())
+  createdAt     DateTime            @default(now())
+
+  @@index([adminRecordId])
+  @@index([userId, actedAt])
+}
+
+model AssignmentRecord {
+  id                 String    @id @default(cuid())
+  documentId         String    @unique
+  document           Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  subjectName        String?
+  assignmentTitle    String?
+  dueAt              DateTime?
+  deliverableType    String?
+  instructionSummary String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model DocumentDeadline {
+  id               String               @id @default(cuid())
+  documentId       String
+  document         Document             @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  linkedEntityType String?
+  linkedEntityId   String?
+  deadlineType     DocumentDeadlineType
+  dueAt            DateTime?
+  confidence       Float                @default(0.5)
+  createdAt        DateTime             @default(now())
+
+  @@index([documentId])
+}
+
+model DocumentIntakeFeedback {
+  id           String                     @id @default(cuid())
+  documentId   String
+  document     Document                   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  feedbackType DocumentIntakeFeedbackType
+  fieldName    String?
+  note         String?
+  createdAt    DateTime                   @default(now())
+
+  @@index([documentId])
+}
+
+model Task {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  done         Boolean       @default(false)
+  dueAt        DateTime?
+  /// Phase 5 — optional label to group errands (e.g. neighborhood, store name)
+  locationHint String?
+  /// Sprint 08 — task imported from connector source record
+  sourceRecordId String?
+  sourceRecord   SourceRecord? @relation("TaskFromSourceRecord", fields: [sourceRecordId], references: [id], onDelete: SetNull)
+  archivedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, dueAt])
+  @@index([userId, locationHint])
+  @@index([sourceRecordId])
+}
+
+enum ObligationStatus {
+  open
+  done
+  dismissed
+  confirmed
+  resolved
+  reopened
+}
+
+model Obligation {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  status      ObligationStatus @default(open)
+  dueAt       DateTime?
+  description String?
+
+  /// Sprint 02 — structured surfacing: FOLLOW_UP, DEADLINE, REVIEW, PROMISE, EVENT_PREP, TASK_DEADLINE
+  obligationType   String?
+  reasonSummary    String?
+  confidence       Float           @default(0.5)
+  sourceSignalId   String?
+  sourceSignal     SignalEnvelope? @relation("ObligationFromSignal", fields: [sourceSignalId], references: [id], onDelete: SetNull)
+  sourceEntityType String?
+  sourceEntityId   String?
+
+  surfacedCount    Int       @default(0)
+  lastSurfacedAt   DateTime?
+  lastDismissedAt  DateTime?
+  lastConfirmedAt  DateTime?
+  lastResolvedAt   DateTime?
+  staleAfterAt     DateTime?
+  suppressionUntil DateTime?
+
+  dismissedCount      Int     @default(0)
+  dismissalReasonNote String?
+
+  evidenceItems     EvidenceItem[]
+  linkedSuggestions Suggestion[]
+  mediationLogs     AssistantMediationLog[] @relation("ObligationMediationLogs")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, dueAt])
+  @@index([sourceSignalId])
+}
+
+model Deadline {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  dueAt        DateTime
+  obligationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, dueAt])
+}
+
+model Reminder {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title  String
+  fireAt DateTime
+  sent   Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, fireAt])
+}
+
+model EntityLink {
+  id             String @id @default(cuid())
+  userId         String
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromEntityType String
+  fromEntityId   String
+  toEntityType   String
+  toEntityId     String
+  relationType   String
+  /// Sprint 06 — evidence-backed link confidence (0–1)
+  confidence     Float  @default(0.72)
+  reasonSummary  String @default("")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([fromEntityType, fromEntityId])
+}
+
+enum SuggestionState {
+  pending
+  accepted
+  dismissed
+  snoozed
+  false_positive
+}
+
+model Suggestion {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  reason           String
+  confidence       Float
+  rank             Float
+  linkedEntityType String?
+  linkedEntityId   String?
+  state            SuggestionState @default(pending)
+  snoozedUntil     DateTime?
+
+  linkedObligationId         String?
+  linkedObligation           Obligation? @relation(fields: [linkedObligationId], references: [id], onDelete: SetNull)
+  surfacedFromMediationLogId String?
+  suggestionType             String?
+  lastShownAt                DateTime?
+  actedOnAt                  DateTime?
+  lastActionAt               DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  evidence    EvidenceItem[]
+  rankFactors SuggestionRankFactor[]
+
+  notificationSurfaceEvents NotificationSurfaceEvent[]
+
+  @@index([userId, state])
+  @@index([userId, rank])
+  @@index([linkedObligationId])
+}
+
+model SuggestionRankFactor {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  suggestionId String
+  suggestion   Suggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  name         String
+  weight       Float
+  value        Float
+
+  @@index([suggestionId])
+}
+
+enum BriefBucket {
+  do_now
+  do_today
+  before_meeting
+  watch_week
+  needs_confirmation
+}
+
+model DailyBrief {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day    DateTime @db.Date
+
+  items DailyBriefItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, day])
+  @@index([userId, day])
+}
+
+model DailyBriefItem {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyBriefId String
+  dailyBrief   DailyBrief  @relation(fields: [dailyBriefId], references: [id], onDelete: Cascade)
+  bucket       BriefBucket
+  sortOrder    Int         @default(0)
+  title        String
+  oneLine      String?
+  refType      String?
+  refId        String?
+
+  reasonSummary String?
+  evidenceCount Int     @default(0)
+  priorityScore Float?
+
+  /// Mediation branch key for i18n (`mediation.<key>`); set when item comes from suggestion path.
+  mediationReasonKey String?
+  /// Optional domain-tone suffix key (`mediation.<key>`).
+  mediationToneKey   String?
+
+  /// Sprint 12 — e.g. `voice` for voice-originated continuity items
+  sourceKind String?
+
+  createdAt DateTime @default(now())
+
+  @@index([dailyBriefId])
+}
+
+enum EvidenceKind {
+  observed
+  extracted
+  inferred
+}
+
+model EvidenceItem {
+  id              String          @id @default(cuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  suggestionId    String?
+  suggestion      Suggestion?     @relation(fields: [suggestionId], references: [id], onDelete: SetNull)
+  obligationId    String?
+  obligation      Obligation?     @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  sourceSignalId  String?
+  sourceSignal    SignalEnvelope? @relation("EvidenceItemFromSignal", fields: [sourceSignalId], references: [id], onDelete: SetNull)
+  extractedFactId String?
+  extractedFact   ExtractedFact?  @relation(fields: [extractedFactId], references: [id], onDelete: SetNull)
+  documentId      String?
+  document        Document?       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  kind            EvidenceKind
+  summary         String
+  sourceRef       String? // connector / record id
+
+  createdAt DateTime @default(now())
+
+  @@index([suggestionId])
+  @@index([obligationId])
+  @@index([sourceSignalId])
+  @@index([extractedFactId])
+  @@index([documentId])
+}
+
+model AuditLog {
+  id         String  @id @default(cuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String?
+  entityId   String?
+  metaJson   String  @default("{}")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model FeedbackSignal {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  suggestionId String?
+  useful       Boolean?
+  note         String?
+
+  /// Sprint 04 — structured feedback (e.g. CONFIRM, DISMISS); linkedEntity* when not using suggestionId alone
+  feedbackType     String?
+  linkedEntityType String?
+  linkedEntityId   String?
+  surface          String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([linkedEntityType, linkedEntityId])
+}
+
+model MemoryCorrection {
+  id         String @id @default(cuid())
+  userId     String
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType String
+  entityId   String
+  patchJson  String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model DismissalRule {
+  id          String  @id @default(cuid())
+  userId      String
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patternJson String // e.g. suggestion type / entity key
+  reason      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// --- v3 assistant-grade layers (Life_OS_v3 blueprint) ---
+
+enum UserStateType {
+  focused
+  fragmented
+  overloaded
+  low_attention
+  social_drain
+  recovery
+  admin_ready
+  transition
+}
+
+model UserStateSnapshot {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stateType     UserStateType
+  confidence    Float         @default(0.5)
+  sourceSummary String?
+  detectedAt    DateTime      @default(now())
+  expiresAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, detectedAt])
+}
+
+enum GeoContextType {
+  home
+  work
+  transit
+  travel
+  unknown
+}
+
+model GeoContextEvent {
+  id                   String         @id @default(cuid())
+  userId               String
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contextType          GeoContextType
+  placeLabel           String?
+  placeClass           String?
+  relevanceWindowStart DateTime?
+  relevanceWindowEnd   DateTime?
+  transitRisk          Float          @default(0)
+  summaryJson          String         @default("{}")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model RelationshipProfile {
+  id                     String @id @default(cuid())
+  userId                 String
+  user                   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personId               String @unique
+  person                 Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  formalityLevel         Int    @default(3)
+  emotionalSensitivity   Int    @default(3)
+  delayTolerance         Int    @default(3)
+  responseExpectation    String @default("normal")
+  tonePreference         String @default("warm")
+  relationshipImportance Int    @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+enum LifePhaseTransitionType {
+  job_change
+  caregiver_load
+  relocation
+  burnout_pattern
+  routine_disruption
+  other
+}
+
+model LifePhaseTransition {
+  id               String                  @id @default(cuid())
+  userId           String
+  user             User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transitionType   LifePhaseTransitionType
+  confidence       Float                   @default(0.5)
+  startedAt        DateTime                @default(now())
+  active           Boolean                 @default(true)
+  summary          String?
+  detectedFromJson String                  @default("{}")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, active])
+}
+
+enum RoutineGoalDomain {
+  health
+  sleep
+  admin
+  social
+  work
+  other
+}
+
+model RoutineScaffold {
+  id                       String            @id @default(cuid())
+  userId                   String
+  user                     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title                    String
+  goalDomain               RoutineGoalDomain @default(other)
+  structureType            String            @default("weekly_rhythm")
+  cadence                  String?
+  triggerDefinition        String            @default("{}")
+  minimumSuccessDefinition String            @default("{}")
+  recoveryRule             String            @default("{}")
+  active                   Boolean           @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, active])
+}
+
+enum MediationDecision {
+  suppress
+  defer
+  nudge
+  ask
+  surface_now
+  escalate
+  route_to_phone
+  route_to_watch
+  route_to_tile
+}
+
+enum AssistantSurfaceType {
+  phone
+  watch
+  tile
+  silent
+  accessory
+}
+
+model AssistantMediationLog {
+  id                String               @id @default(cuid())
+  userId            String
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceEntityType  String
+  sourceEntityId    String
+  mediationDecision MediationDecision
+  targetSurface     AssistantSurfaceType
+  reasonSummary     String?
+  confidence        Float                @default(0.5)
+
+  linkedObligationId String?
+  linkedObligation   Obligation? @relation("ObligationMediationLogs", fields: [linkedObligationId], references: [id], onDelete: SetNull)
+  inputsSnapshotJson String      @default("{}")
+
+  createdAt DateTime @default(now())
+
+  notificationSurfaceEvents NotificationSurfaceEvent[]
+
+  @@index([userId, createdAt])
+  @@index([linkedObligationId])
+}
+
+/// Optional audit for local Ollama / A-S-FLC calls (tier, route, timing — no raw prompts).
+model LlmInvocationLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier       Int
+  route      String
+  model      String?
+  latencyMs  Int
+  promptHash String?
+  ok         Boolean  @default(true)
+  tokenCount Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model SurfaceDeliveryPolicy {
+  id                String               @id @default(cuid())
+  userId            String
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surfaceType       AssistantSurfaceType
+  privacyMode       String               @default("balanced")
+  urgencyThreshold  Float                @default(0.5)
+  interruptionLimit Int                  @default(10)
+  contentDensity    String               @default("normal")
+  active            Boolean              @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, surfaceType])
+}
+
+// --- Permission, trust, progressive activation ---
+
+enum CapabilityRuntimeState {
+  not_enabled
+  passive
+  active
+}
+
+model UserCapabilityRegistry {
+  id                  String                 @id @default(cuid())
+  userId              String
+  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capabilityKey       String
+  runtimeState        CapabilityRuntimeState @default(not_enabled)
+  activationLevel     Int                    @default(1)
+  trustScore          Float                  @default(0.22)
+  sensitivityClass    Int                    @default(0)
+  explanationTemplate String                 @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, capabilityKey])
+  @@index([userId])
+  @@map("capability_registry")
+}
+
+model CapabilityPermission {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capabilityKey   String
+  sourceType      String
+  permissionScope String
+  purposeLabel    String
+  granted         Boolean   @default(false)
+  grantedAt       DateTime?
+  revokedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, capabilityKey])
+  @@map("capability_permissions")
+}
+
+model CapabilityBehaviorPolicy {
+  id                   String @id @default(cuid())
+  userId               String
+  user                 User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capabilityKey        String
+  allowedBehaviorsJson String @default("[]")
+  blockedBehaviorsJson String @default("[]")
+  confidenceThreshold  Float  @default(0.55)
+  trustThreshold       Float  @default(0.4)
+  surfacePolicyJson    String @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, capabilityKey])
+  @@map("capability_behavior_policies")
+}
+
+model CapabilityActivationEvent {
+  id            String  @id @default(cuid())
+  userId        String
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capabilityKey String
+  previousState String
+  newState      String
+  reasonSummary String?
+  triggeredBy   String  @default("system")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, capabilityKey, createdAt])
+  @@map("capability_activation_events")
+}
+
+model CapabilityFeedbackMetrics {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capabilityKey      String
+  confirmsCount      Int      @default(0)
+  dismissalsCount    Int      @default(0)
+  falsePositiveCount Int      @default(0)
+  correctionsCount   Int      @default(0)
+  createdAt          DateTime @default(now())
+  lastUpdatedAt      DateTime @updatedAt
+
+  @@unique([userId, capabilityKey])
+  @@map("capability_feedback_metrics")
+}
+
+// --- Adaptive domain architecture (how Life OS helps, vs capabilities = what it may access) ---
+
+enum DomainRuntimeState {
+  not_active
+  passive
+  active
+  restricted
+}
+
+enum DomainActivationStrength {
+  low
+  medium
+  high
+}
+
+/// Global registry of assistant support domains (catalog).
+model AssistantDomain {
+  id                   String @id @default(cuid())
+  domainKey            String @unique
+  displayName          String
+  description          String
+  category             String @default("core")
+  allowedBehaviorsJson String @default("[]")
+  blockedBehaviorsJson String @default("[]")
+  sensitivityClass     Int    @default(0)
+  toneProfile          String @default("{}")
+  activationRulesJson  String @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("assistant_domains")
+}
+
+model UserDomainProfile {
+  id                 String                   @id @default(cuid())
+  userId             String
+  user               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domainKey          String
+  runtimeState       DomainRuntimeState       @default(not_active)
+  activationStrength DomainActivationStrength @default(medium)
+  confidence         Float                    @default(0.5)
+  sourceSignalsJson  String                   @default("{}")
+
+  lastUpdatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, domainKey])
+  @@index([userId])
+  @@map("user_domain_profiles")
+}
+
+model DomainBehaviorPolicy {
+  id                    String @id @default(cuid())
+  userId                String
+  user                  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domainKey             String
+  allowedBehaviorsJson  String @default("[]")
+  blockedBehaviorsJson  String @default("[]")
+  maxAssertivenessLevel Int    @default(2)
+  maxSurfaceScope       String @default("phone_watch_tile")
+  explanationTemplate   String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, domainKey])
+  @@map("domain_behavior_policies")
+}
+
+model DomainFeedbackMetrics {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domainKey          String
+  confirmsCount      Int      @default(0)
+  dismissalsCount    Int      @default(0)
+  falsePositiveCount Int      @default(0)
+  correctionsCount   Int      @default(0)
+  trustScore         Float    @default(0.22)
+  createdAt          DateTime @default(now())
+  lastUpdatedAt      DateTime @updatedAt
+
+  @@unique([userId, domainKey])
+  @@map("domain_feedback_metrics")
+}
+
+model DomainActivationEvent {
+  id            String  @id @default(cuid())
+  userId        String
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domainKey     String
+  previousState String
+  newState      String
+  reasonSummary String?
+  triggeredBy   String  @default("user")
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, domainKey, createdAt])
+  @@map("domain_activation_events")
+}
+
+// --- Global language scope + voice stack (modality-specific; not one flat “supported” flag) ---
+
+enum LanguageQualityTier {
+  FULL_ASSISTANT
+  STRONG_VOICE
+  CORE_ASSISTANT
+  CONTROLLED_ROLLOUT
+  EXPERIMENTAL
+}
+
+enum LanguageRolloutState {
+  active
+  beta
+  disabled
+}
+
+/// Canonical registry row per BCP 47 tag (e.g. en, ar, th, km, lo, ja, ko, zh-Hans, zh-Hant, vi).
+model SupportedLanguage {
+  id                     String               @id @default(cuid())
+  languageTag            String               @unique
+  displayName            String
+  nativeDisplayName      String?
+  regionGroup            String?
+  uiSupported            Boolean              @default(false)
+  typedSupported         Boolean              @default(false)
+  sttSupported           Boolean              @default(false)
+  ttsSupported           Boolean              @default(false)
+  /// STT → assistant → TTS path allowed (still explicit pipeline, not magic s2s).
+  s2sSupported           Boolean              @default(false)
+  qualityTier            LanguageQualityTier
+  rolloutState           LanguageRolloutState @default(active)
+  preferredProvidersJson String               @default("{}")
+  notes                  String?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  providerPolicies LanguageProviderPolicy[]
+}
+
+model LanguageProviderPolicy {
+  id                  String            @id @default(cuid())
+  supportedLanguageId String
+  supportedLanguage   SupportedLanguage @relation(fields: [supportedLanguageId], references: [id], onDelete: Cascade)
+  sttProvider         String?
+  ttsProvider         String?
+  fallbackProvider    String?
+  offlineAllowed      Boolean           @default(false)
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([supportedLanguageId])
+}
+
+model UserLanguagePreference {
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  primaryUiLanguage        String   @default("en")
+  primaryAssistantLanguage String   @default("en")
+  preferredSttLanguage     String?
+  preferredTtsLanguage     String?
+  secondaryLanguagesJson   String   @default("[]")
+  allowAutoLocaleSwitch    Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+// --- Signal Intake + Context Engine (blueprint: raw → signal → normalized → facts → context) ---
+
+enum SignalType {
+  NOTE_CAPTURE
+  CALENDAR_EVENT
+  TASK_ITEM
+  DOCUMENT_INPUT
+  REMINDER_INPUT
+  CORRECTION_INPUT
+  ROUTINE_GOAL
+  PLACE_EVENT
+  SCREEN_TIME_SUMMARY
+  VOICE_CAPTURE
+  RELATIONSHIP_SIGNAL
+  LANGUAGE_PREFERENCE_SIGNAL
+  SURFACE_INTERACTION_SIGNAL
+  /// Sprint 08 — email headers/snippet metadata only (no full body by default)
+  EMAIL_THREAD_METADATA
+  /// Sprint 12 — voice transcript routed like other captures
+  VOICE_NOTE
+}
+
+enum SignalSourceType {
+  manual
+  connector
+  voice
+  system
+  api
+}
+
+enum SignalProcessingStatus {
+  pending
+  normalizing
+  extracting
+  resolving
+  context_ready
+  failed
+}
+
+enum SignalProcessingStage {
+  intake
+  normalization
+  extraction
+  entity_resolution
+  context_construction
+  evidence
+}
+
+enum ContextObjectType {
+  EVENT_CONTEXT
+  PERSON_CONTEXT
+  OBLIGATION_CONTEXT
+  ROUTINE_CONTEXT
+  GEO_CONTEXT
+  RELATIONSHIP_CONTEXT
+  SURFACE_CONTEXT
+  USER_STATE_CONTEXT
+}
+
+model SignalEnvelope {
+  id                String                 @id @default(cuid())
+  userId            String
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signalType        SignalType
+  sourceType        SignalSourceType
+  sourceConnectorId String?
+  sourceConnector   SourceConnector?       @relation(fields: [sourceConnectorId], references: [id], onDelete: SetNull)
+  sourceRecordId    String?
+  sourceRecord      SourceRecord?          @relation(fields: [sourceRecordId], references: [id], onDelete: SetNull)
+  rawPayloadJson    String
+  contentHash       String
+  occurredAt        DateTime?
+  receivedAt        DateTime               @default(now())
+  languageCode      String?                @default("en")
+  privacyClass      String?                @default("medium")
+  trustLevel        Int                    @default(50)
+  processingStatus  SignalProcessingStatus @default(pending)
+
+  normalizedRecord    NormalizedSignalRecord?
+  extractedFacts      ExtractedFact[]
+  processingLogs      SignalProcessingLog[]
+  memoryEvidenceLinks MemoryEvidenceLink[]
+  sourceObligations   Obligation[]            @relation("ObligationFromSignal")
+  evidenceFromSignal  EvidenceItem[]          @relation("EvidenceItemFromSignal")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, receivedAt])
+  @@index([userId, processingStatus])
+  @@index([contentHash])
+}
+
+model NormalizedSignalRecord {
+  id                             String         @id @default(cuid())
+  signalId                       String         @unique
+  signal                         SignalEnvelope @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  normalizedText                 String         @default("")
+  normalizedTimeJson             String         @default("{}")
+  candidatePeopleJson            String         @default("[]")
+  candidatePlaceJson             String         @default("{}")
+  candidateTopicsJson            String         @default("[]")
+  candidateTasksJson             String         @default("[]")
+  candidateDeadlinesJson         String         @default("[]")
+  candidateRelationshipHintsJson String         @default("[]")
+  candidateRoutineHintsJson      String         @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ExtractedFact {
+  id                  String         @id @default(cuid())
+  signalId            String
+  signal              SignalEnvelope @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  factType            String
+  factValueJson       String         @default("{}")
+  confidence          Float          @default(0.5)
+  observedVsExtracted String         @default("extracted")
+  evidenceExcerpt     String?
+
+  transcriptSegmentId String?
+  transcriptSegment   TranscriptSegment? @relation(fields: [transcriptSegmentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  memoryEvidenceLinks MemoryEvidenceLink[]
+  evidenceItems       EvidenceItem[]
+
+  @@index([signalId])
+  @@index([factType])
+  @@index([transcriptSegmentId])
+}
+
+model ContextObject {
+  id               String            @id @default(cuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contextType      ContextObjectType
+  linkedEntityType String
+  linkedEntityId   String
+  summaryJson      String            @default("{}")
+  confidence       Float             @default(0.7)
+  freshnessScore   Float             @default(1.0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, contextType])
+  @@index([linkedEntityType, linkedEntityId])
+}
+
+model SignalProcessingLog {
+  id        String                @id @default(cuid())
+  signalId  String
+  signal    SignalEnvelope        @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  stage     SignalProcessingStage
+  status    String
+  summary   String?
+  errorCode String?
+
+  createdAt DateTime @default(now())
+
+  @@index([signalId, createdAt])
+}
+
+// --- Memory Graph + Personal Continuity Store ---
+
+enum MemoryNodeType {
+  PERSON
+  EVENT
+  OBLIGATION
+  TASK
+  NOTE
+  DOCUMENT
+  PROJECT
+  ROUTINE
+  PLACE
+  DECISION
+  PREFERENCE
+  SUGGESTION
+}
+
+enum MemoryLayerType {
+  hot_operational
+  warm_episodic
+  semantic
+  evidence
+  cold_archive
+}
+
+enum MemoryEdgeType {
+  related_to
+  caused_by
+  involves
+  supports
+  derived_from
+  repeats_with
+  depends_on
+  follows_up_from
+}
+
+model MemoryNode {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeType         MemoryNodeType
+  summary          String
+  confidence       Float           @default(0.5)
+  strengthScore    Float           @default(0.5)
+  layerType        MemoryLayerType @default(evidence)
+  sensitivityClass String          @default("medium")
+  lastAccessedAt   DateTime?
+  lastConfirmedAt  DateTime?
+  decayRate        Float           @default(0.01)
+  refEntityType    String?
+  refEntityId      String?
+  archivedAt       DateTime?
+
+  status          String    @default("active")
+  lastObservedAt  DateTime?
+  lastDismissedAt DateTime?
+  lastResolvedAt  DateTime?
+
+  edgesOut       MemoryEdge[]          @relation("MemoryEdgeFrom")
+  edgesIn        MemoryEdge[]          @relation("MemoryEdgeTo")
+  evidenceLinks  MemoryEvidenceLink[]
+  confirmations  MemoryConfirmation[]
+  archiveRecords MemoryArchiveRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, layerType])
+  @@index([userId, nodeType])
+  @@index([userId, archivedAt])
+  @@index([refEntityType, refEntityId])
+}
+
+model MemoryEdge {
+  id            String         @id @default(cuid())
+  fromNodeId    String
+  toNodeId      String
+  fromNode      MemoryNode     @relation("MemoryEdgeFrom", fields: [fromNodeId], references: [id], onDelete: Cascade)
+  toNode        MemoryNode     @relation("MemoryEdgeTo", fields: [toNodeId], references: [id], onDelete: Cascade)
+  edgeType      MemoryEdgeType
+  strength      Float          @default(0.5)
+  active        Boolean        @default(true)
+  evidenceCount Int            @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fromNodeId])
+  @@index([toNodeId])
+}
+
+model MemoryEvidenceLink {
+  id              String          @id @default(cuid())
+  memoryNodeId    String
+  memoryNode      MemoryNode      @relation(fields: [memoryNodeId], references: [id], onDelete: Cascade)
+  signalId        String?
+  signal          SignalEnvelope? @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  extractedFactId String?
+  extractedFact   ExtractedFact?  @relation(fields: [extractedFactId], references: [id], onDelete: Cascade)
+  excerpt         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([memoryNodeId])
+  @@index([signalId])
+  @@index([extractedFactId])
+}
+
+model MemoryConfirmation {
+  id              String     @id @default(cuid())
+  memoryNodeId    String
+  memoryNode      MemoryNode @relation(fields: [memoryNodeId], references: [id], onDelete: Cascade)
+  confirmedByUser Boolean    @default(false)
+  corrected       Boolean    @default(false)
+  correctionNote  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([memoryNodeId])
+}
+
+model MemoryDecayRule {
+  id                      String         @id @default(cuid())
+  nodeType                MemoryNodeType @unique
+  decayRate               Float
+  inactivityThresholdDays Int
+  archiveThresholdDays    Int
+}
+
+model MemoryArchiveRecord {
+  id           String     @id @default(cuid())
+  memoryNodeId String
+  memoryNode   MemoryNode @relation(fields: [memoryNodeId], references: [id], onDelete: Cascade)
+  archivedAt   DateTime   @default(now())
+  reason       String?
+
+  @@index([memoryNodeId])
+}
+
+// --- Sprint 09 — Privacy, retention, purge controls ---
+
+enum RetentionClass {
+  HOT_ACTIVE
+  WARM_CONTINUITY
+  SEMANTIC_LONG_LIFE
+  EVIDENCE_SHORT_LIFE
+  SENSITIVE_RESTRICTED
+  EXPORTED_PENDING_DELETION
+  PURGE_QUEUED
+  TOMBSTONED
+}
+
+enum DataSensitivityLevel {
+  NORMAL
+  ELEVATED
+  SENSITIVE
+  HIGHLY_SENSITIVE
+}
+
+enum PrivacyActionType {
+  EXPORT
+  DELETE
+  ARCHIVE
+  REDACT
+  PURGE_CONNECTOR
+  PURGE_CATEGORY
+  DISCONNECT_AND_PURGE
+  RETENTION_CHANGE
+}
+
+enum PrivacyActionStatus {
+  REQUESTED
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL
+  CANCELLED
+}
+
+enum PurgeExecutionMode {
+  SOFT_DELETE
+  HARD_DELETE_WHERE_SUPPORTED
+  REDACT_AND_KEEP_SHAPE
+  DISCONNECT_ONLY
+}
+
+enum ExportFormat {
+  json
+  markdown
+}
+
+enum ExportJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum PurgeJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+model DataRetentionPolicy {
+  id                       String               @id @default(cuid())
+  userId                   String
+  user                     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category                 String
+  sensitivityLevel         DataSensitivityLevel @default(NORMAL)
+  retentionClass           RetentionClass       @default(WARM_CONTINUITY)
+  defaultActionAfterWindow String               @default("none")
+  retentionDays            Int?
+  autoPurgeEnabled         Boolean              @default(false)
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+
+  @@unique([userId, category])
+  @@index([userId])
+}
+
+model PrivacyAction {
+  id               String              @id @default(cuid())
+  userId           String
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actionType       PrivacyActionType
+  targetEntityType String
+  targetEntityId   String?
+  reason           String?
+  requestedAt      DateTime            @default(now())
+  executedAt       DateTime?
+  status           PrivacyActionStatus @default(REQUESTED)
+  summaryJson      String              @default("{}")
+  createdAt        DateTime            @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+}
+
+model PurgeJob {
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopeType       String
+  scopeId         String?
+  category        String
+  executionMode   PurgeExecutionMode
+  status          PurgeJobStatus     @default(QUEUED)
+  queuedAt        DateTime           @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  resultJson      String             @default("{}")
+  createdAt       DateTime           @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum ExportEncryptionMode {
+  NONE
+  AES256_GCM_DEV
+}
+
+model ExportJob {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exportScope       String          @default("standard")
+  includeSensitive  Boolean         @default(false)
+  format            ExportFormat    @default(json)
+  status            ExportJobStatus @default(QUEUED)
+  filePath          String?
+  exportPayloadJson String?
+  expiresAt         DateTime?
+  /// Hardening Sprint 01 — NONE = plain JSON in DB; AES256_GCM_DEV = ciphertext envelope (dev key)
+  encryptionMode    ExportEncryptionMode @default(NONE)
+  downloadedAt      DateTime?
+  createdAt         DateTime        @default(now())
+  completedAt       DateTime?
+
+  @@index([userId, createdAt])
+}
+
+model RedactionRule {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  String
+  fieldPath String
+  ruleType  String
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, category])
+}
+
+model StorageInventorySnapshot {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshotJson String
+  generatedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([userId, generatedAt])
+}
+
+// --- Sprint 10 — Mobile runtime + notification surface (starter pack §8–9) ---
+
+enum NotificationSurfaceKind {
+  DO_NOW
+  DO_TODAY
+  BEFORE_NEXT_EVENT
+  ADMIN_DUE
+  DOCUMENT_REVIEW
+  MEMORY_CONFIRMATION
+  CONTEXT_PREP
+  DIGEST
+}
+
+enum NotificationUrgencyLevel {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum NotificationPrivacyLevel {
+  GENERIC
+  REDACTED
+  SENSITIVE
+}
+
+enum NotificationDeliveryChannel {
+  IN_APP
+  LOCAL_PUSH
+  PUSH
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  OPENED
+  ACTED_ON
+  SUPPRESSED
+  FAILED
+}
+
+enum NotificationActionKind {
+  OPEN
+  CONFIRM
+  DISMISS
+  RESOLVE
+  SNOOZE
+  MUTE_CATEGORY
+  OPEN_DETAIL
+  OPEN_EVIDENCE
+}
+
+enum NotificationLockScreenMode {
+  private_default
+  redacted_reason
+  full_detail
+}
+
+model NotificationSurfaceEvent {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  linkedEntityType String
+  linkedEntityId   String
+
+  sourceSuggestionId String?
+  sourceSuggestion   Suggestion? @relation(fields: [sourceSuggestionId], references: [id], onDelete: SetNull)
+
+  sourceMediationLogId String?
+  sourceMediationLog   AssistantMediationLog? @relation(fields: [sourceMediationLogId], references: [id], onDelete: SetNull)
+
+  notificationType NotificationSurfaceKind
+  title            String
+  bodySummary      String?
+  reasonSummary    String?
+  urgencyLevel     NotificationUrgencyLevel     @default(NORMAL)
+  privacyLevel     NotificationPrivacyLevel     @default(REDACTED)
+  deliveryChannel  NotificationDeliveryChannel @default(IN_APP)
+  deliveryStatus   NotificationDeliveryStatus   @default(PENDING)
+
+  sentAt   DateTime?
+  openedAt DateTime?
+  actedAt  DateTime?
+
+  /// When set, duplicate sends for the same entity + type are skipped until this window passes.
+  dedupeKey String?
+
+  createdAt DateTime @default(now())
+
+  actionLogs NotificationActionLog[]
+
+  @@index([userId, createdAt])
+  @@index([userId, linkedEntityType, linkedEntityId])
+  @@index([userId, deliveryStatus])
+  @@index([sourceMediationLogId])
+
+  policyDecision PolicyDecision?
+}
+
+/// Hardening Phase A — auditable allow/deny for automated actions (first surface: notification delivery).
+enum PolicySurfaceKind {
+  notification_delivery
+}
+
+enum PolicyOutcome {
+  allow
+  deny
+}
+
+model PolicyDecision {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  surface PolicySurfaceKind
+  outcome PolicyOutcome
+  /// Machine-readable codes, e.g. category_disabled, mediation_blocked, dedupe_suppressed
+  reasonCodes Json @default("[]")
+  context     Json?
+
+  refEntityType String?
+  refEntityId   String?
+
+  notificationSurfaceEventId String? @unique
+  notificationSurfaceEvent   NotificationSurfaceEvent? @relation(fields: [notificationSurfaceEventId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, surface, createdAt])
+}
+
+model NotificationUserPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  lockScreenMode NotificationLockScreenMode @default(private_default)
+
+  quietHoursEnabled Boolean @default(false)
+  quietHoursStart   String? /// "HH:mm" local to user timezone
+  quietHoursEnd     String?
+
+  criticalOverrideEnabled Boolean @default(true)
+
+  doNowEnabled             Boolean @default(true)
+  doTodayEnabled           Boolean @default(true)
+  beforeNextEventEnabled   Boolean @default(true)
+  adminAlertsEnabled       Boolean @default(true)
+  documentAlertsEnabled    Boolean @default(true)
+  studyAlertsEnabled       Boolean @default(true)
+  healthAlertsEnabled      Boolean @default(true)
+  digestEnabled            Boolean @default(false)
+  digestTime               String? /// "HH:mm"
+
+  /// Sprint 11 — optional preferred delivery window (local HH:mm); calm vs direct copy
+  preferredReminderWindowStart String?
+  preferredReminderWindowEnd   String?
+  notificationVerbosity        NotificationVerbosity @default(calm)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NotificationDeviceRegistration {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deviceType       String /// phone, watch, web
+  appRuntimeType   String /// web, pwa, native_stub
+  pushTokenOrLocalDeviceKey String?
+  isActive         Boolean  @default(true)
+  lastSeenAt       DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isActive])
+}
+
+model NotificationActionLog {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  notificationEventId String
+  notificationEvent   NotificationSurfaceEvent @relation(fields: [notificationEventId], references: [id], onDelete: Cascade)
+
+  actionType NotificationActionKind
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([notificationEventId])
+}
+
+// --- Sprint 11 — User Profile & Priority adaptation (UPR) ---
+
+model UserProfileMode {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  activeMode         MainLifeMode
+  sourceType         String /// manual | inferred | context
+  sourceEntityType   String?
+  sourceEntityId     String?
+  startsAt           DateTime  @default(now())
+  endsAt             DateTime?
+  confidence         Float     @default(0.7)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, startsAt])
+  @@index([userId, sourceType])
+}
+
+model PreferenceInferenceSignal {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  signalType        String
+  linkedEntityType  String?
+  linkedEntityId    String?
+  signalValueJson   String @default("{}")
+
+  observedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId, signalType, observedAt])
+}
+
+model InferredPreferenceState {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  preferenceKey    String
+  inferredValueJson String                 @default("{}")
+  confidence       Float                  @default(0.5)
+  reasonSummary    String?
+  status           InferredPreferenceStatus @default(active)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, preferenceKey, status])
+}
+
+model PriorityProfileSnapshot {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  activeMode          MainLifeMode
+  rankingWeightsJson  String @default("{}")
+  triggerReason      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AdaptationDecisionLog {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  targetSurface     String
+  linkedEntityType  String?
+  linkedEntityId    String?
+  adaptationType    String
+  beforeValueJson   String @default("{}")
+  afterValueJson    String @default("{}")
+  reasonSummary     String?
+  confidence        Float  @default(0.5)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, adaptationType])
+}
+
+// --- Hardening Sprint 02 — sync substrate, jobs, observability ---
+
+enum SyncOutboxStatus {
+  PENDING
+  LEASED
+  APPLIED
+  FAILED
+  BLOCKED_CONFLICT
+  SUPPRESSED
+}
+
+enum ScheduledJobStatus {
+  PENDING
+  CLAIMED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  SUPPRESSED
+}
+
+enum JobRunStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+model MutationLog {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId       String?
+  device         EdgeDevice?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  actorType      String
+  entityType     String
+  entityId       String
+  mutationType   String
+  payloadJson    Json         @default("{}")
+  baseVersion    Int          @default(0)
+  newVersion     Int          @default(1)
+  causalGroupId  String?
+  createdAt      DateTime     @default(now())
+
+  syncOutbox     SyncOutbox?
+  entityVersions EntityVersion[] @relation("EntityVersionMutation")
+
+  @@index([userId, createdAt])
+  @@index([userId, entityType, entityId])
+}
+
+model SyncOutbox {
+  id           String            @id @default(cuid())
+  mutationId   String            @unique
+  mutation     MutationLog       @relation(fields: [mutationId], references: [id], onDelete: Cascade)
+  targetScope  String
+  syncStatus   SyncOutboxStatus  @default(PENDING)
+  retryCount   Int               @default(0)
+  nextRetryAt  DateTime?
+  lastError    String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([syncStatus, nextRetryAt])
+}
+
+model EntityVersion {
+  id                   String       @id @default(cuid())
+  userId               String
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType           String
+  entityId             String
+  currentVersion       Int          @default(1)
+  updatedByMutationId  String?
+  updatedByMutation    MutationLog? @relation("EntityVersionMutation", fields: [updatedByMutationId], references: [id], onDelete: SetNull)
+  updatedAt            DateTime     @default(now())
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId, updatedAt])
+}
+
+model ConflictEvent {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityType           String
+  entityId             String
+  localMutationId      String
+  competingMutationId  String
+  resolutionType       String
+  resolutionSummary    String
+  humanReviewRequired  Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, entityType, entityId])
+}
+
+model ScheduledJob {
+  id                String             @id @default(cuid())
+  jobType           String
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedEntityType  String?
+  linkedEntityId    String?
+  priority          Int                @default(0)
+  scheduledFor      DateTime
+  leaseOwner        String?
+  leaseExpiresAt    DateTime?
+  status            ScheduledJobStatus @default(PENDING)
+  dedupeKey         String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  runs JobRun[]
+
+  @@index([userId, status, scheduledFor])
+  @@index([userId, dedupeKey])
+}
+
+model JobRun {
+  id             String        @id @default(cuid())
+  jobId          String
+  job            ScheduledJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  workerName     String
+  runStatus      JobRunStatus
+  startedAt      DateTime      @default(now())
+  finishedAt     DateTime?
+  errorSummary   String?
+  outputSummary  String?
+
+  @@index([jobId, startedAt])
+}
+
+model TraceEvent {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  traceType      String
+  stage          String
+  entityType     String?
+  entityId       String?
+  sourceRef      String?
+  inputSummary   String?
+  outputSummary  String?
+  status         String
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, entityType, entityId])
+}
+
+model ExplanationEvent {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surfacedEntityType   String
+  surfacedEntityId     String
+  reasonType           String
+  explanationJson      Json     @default("{}")
+  evidenceRefsJson     Json     @default("[]")
+  confidence           Float    @default(0.5)
+  createdAt            DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, surfacedEntityType, surfacedEntityId])
+}
+
+model ProjectionRefresh {
+  id               String    @id @default(cuid())
+  projectionType   String
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggerType      String
+  triggerRef       String?
+  refreshStatus    String
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
+
+  @@index([userId, createdAt])
+  @@index([userId, projectionType])
+}

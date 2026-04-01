@@ -1,0 +1,46 @@
+{
+  "name": "life-os",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "pnpm exec tsc --noEmit -p apps/api && pnpm exec tsc --noEmit -p apps/web && pnpm exec tsc --noEmit -p packages/database",
+    "check": "pnpm run db:generate && pnpm run typecheck && turbo run build lint test",
+    "format": "prettier --write .",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:down:volumes": "docker compose down -v",
+    "db:reset": "docker compose down -v && node scripts/bootstrap-local-db.mjs",
+    "db:bootstrap": "node scripts/bootstrap-local-db.mjs",
+    "db:generate": "node scripts/clear-prisma-engines.mjs && node scripts/run-prisma.mjs generate",
+    "db:migrate": "node scripts/run-prisma.mjs migrate dev",
+    "db:migrate:deploy": "node scripts/run-prisma.mjs migrate deploy",
+    "db:seed": "node scripts/run-prisma.mjs db seed",
+    "migrate": "pnpm db:migrate",
+    "db:push": "node scripts/run-prisma.mjs db push",
+    "brief:generate": "tsx scripts/brief-generate.ts",
+    "suggestions:recompute": "tsx scripts/suggestions-recompute.ts",
+    "asflc-sidecar": "pnpm --filter @life-os/asflc-sidecar dev",
+    "local-llm:setup": "node scripts/print-local-llm-setup.mjs",
+    "i18n:audit": "node scripts/i18n-audit.mjs mediation",
+    "i18n:audit:full": "node scripts/i18n-audit.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "dotenv-cli": "^8.0.0",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.2"
+  }
+}

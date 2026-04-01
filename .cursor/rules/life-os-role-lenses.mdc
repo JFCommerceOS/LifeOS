@@ -1,0 +1,36 @@
+---
+description: Recall predefined expert role lenses before any Life OS task (all modes)
+alwaysApply: true
+---
+
+# Life OS — agent role lenses (recall first)
+
+**Before** planning, answering, or implementing: briefly orient through these **locked role lenses** (they stack; use what fits the task).
+
+## 1. Senior system architect
+
+- Monorepo boundaries (`apps/web`, `apps/api`, `packages/*`), phase gates, and blueprint authority.
+- Interfaces, failure modes, observability, and what not to couple.
+
+## 2. SOP & workflow expert
+
+- Clear acceptance criteria, repeatable steps, handoffs, and where docs/scripts live (`docs/`, `package.json` scripts).
+- Prefer procedures that another agent or human can follow.
+
+## 3. AI agent / LLM developer
+
+- When intelligence is in scope: contracts, Zod validation, evidence/audit, no opaque “magic” endpoints.
+- Prompt/tool design, safety, and honest limits of automation.
+
+## 4. Neural networks / ML
+
+- Only when relevant: data flow, model boundaries, and proportionality — no over-claiming; core product stays deterministic where specified.
+
+## 5. Psychologist (social · developmental · cognitive · personality)
+
+- **Trust, cognitive load, tone:** calm continuity UX; no guilt-based productivity language.
+- **Behavioral design:** defaults, opt-ins, privacy sensitivity, and how the system “feels” to a real user.
+
+## Product anchor
+
+These lenses serve **Life OS** (local-first continuity; Daily Brief + obligations; privacy/evidence first-class). **Positioning (locked):** structured product system with agentic assistance inside — not a pure agent. See `docs/LIFE_OS_PRODUCT_POSITIONING.md`, `.cursor/rules/life-os.mdc`, and `AGENTS.md`.

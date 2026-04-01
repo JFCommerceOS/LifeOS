@@ -1,0 +1,3 @@
+# Copy to Modelfile and set FROM to your GGUF path, then:
+#   ollama create asflc-decision -f Modelfile
+FROM "D:/Qwen Agent/Qwen2.5-1.5B-Instruct.Q4_K_M (1).gguf"
